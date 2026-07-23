@@ -1,44 +1,97 @@
-import { View, Text, TouchableOpacity, FlatList, StyleSheet } from "react-native";
+import { useMemo, useState } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  FlatList,
+  StyleSheet,
+  Alert,
+} from "react-native";
 import { COLORS, FONT } from "../theme";
 
 /**
  * Oversikten du swiper til: alle kategorier AI-en har opprettet,
- * med antall notater og siste aktivitet.
+ * med søkefelt, antall notater, siste aktivitet, og sletting.
  */
-export default function CategoriesPage({ width, categories, notes, onOpenCategory }) {
-  const items = categories
-    .map((cat) => {
-      const catNotes = notes.filter((n) => n.categoryId === cat.id);
-      const lastAt = catNotes.length
-        ? catNotes.map((n) => n.createdAt).sort().slice(-1)[0]
-        : cat.createdAt;
-      return { ...cat, count: catNotes.length, lastAt };
-    })
-    .sort((a, b) => new Date(b.lastAt) - new Date(a.lastAt));
+export default function CategoriesPage({ width, categories, notes, onOpenCategory, onDeleteCategory }) {
+  const [query, setQuery] = useState("");
+
+  const items = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return categories
+      .map((cat) => {
+        const catNotes = notes.filter((n) => n.categoryId === cat.id);
+        const lastAt = catNotes.length
+          ? catNotes.map((n) => n.createdAt).sort().slice(-1)[0]
+          : cat.createdAt;
+        return { ...cat, count: catNotes.length, lastAt };
+      })
+      .filter((c) => !q || c.name.toLowerCase().includes(q))
+      .sort((a, b) => new Date(b.lastAt) - new Date(a.lastAt));
+  }, [categories, notes, query]);
+
+  const confirmDelete = (cat) => {
+    Alert.alert(
+      "Slett kategori?",
+      `Sletter "${cat.name}" og alle notatene i den.`,
+      [
+        { text: "Avbryt", style: "cancel" },
+        { text: "Slett", style: "destructive", onPress: () => onDeleteCategory(cat) },
+      ]
+    );
+  };
 
   return (
     <View style={[styles.page, { width }]}>
       <Text style={styles.title}>kategorier</Text>
+
+      {categories.length > 0 && (
+        <TextInput
+          style={styles.search}
+          placeholder="søk etter kategori ..."
+          placeholderTextColor={COLORS.textDim}
+          value={query}
+          onChangeText={setQuery}
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardAppearance="dark"
+        />
+      )}
+
       <FlatList
         data={items}
         keyExtractor={(c) => c.id}
         contentContainerStyle={styles.listContent}
+        keyboardShouldPersistTaps="handled"
         renderItem={({ item }) => (
           <TouchableOpacity style={styles.row} onPress={() => onOpenCategory(item)}>
             <Text style={styles.emoji}>{item.emoji}</Text>
             <View style={styles.rowBody}>
-              <Text style={styles.name}>{item.name}</Text>
+              <Text style={styles.name} numberOfLines={1}>
+                {item.name}
+              </Text>
               <Text style={styles.meta}>
                 {item.count} {item.count === 1 ? "notat" : "notater"}
               </Text>
             </View>
-            <Text style={styles.chevron}>{">"}</Text>
+            <TouchableOpacity
+              onPress={() => confirmDelete(item)}
+              hitSlop={12}
+              style={styles.trashBtn}
+            >
+              <Text style={styles.trash}>🗑</Text>
+            </TouchableOpacity>
           </TouchableOpacity>
         )}
         ListEmptyComponent={
-          <Text style={styles.empty}>
-            ingen kategorier ennå.{"\n"}skriv et notat og trykk send —{"\n"}resten ordner seg selv.
-          </Text>
+          query.trim() ? (
+            <Text style={styles.empty}>ingen kategori matcher «{query.trim()}»</Text>
+          ) : (
+            <Text style={styles.empty}>
+              ingen kategorier ennå.{"\n"}skriv et notat og trykk take note —{"\n"}resten ordner seg selv.
+            </Text>
+          )
         }
       />
       <Text style={styles.swipeHint}>{"swipe for å skrive ->"}</Text>
@@ -57,7 +110,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: COLORS.yellow,
     paddingHorizontal: 22,
-    marginBottom: 20,
+    marginBottom: 16,
+  },
+  search: {
+    marginHorizontal: 22,
+    marginBottom: 14,
+    borderColor: COLORS.border,
+    borderWidth: 1,
+    color: COLORS.text,
+    fontFamily: FONT.mono,
+    fontSize: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
   },
   listContent: {
     paddingHorizontal: 22,
@@ -89,10 +153,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: COLORS.textDim,
   },
-  chevron: {
-    fontFamily: FONT.pixel,
-    fontSize: 12,
-    color: COLORS.yellowDim,
+  trashBtn: {
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
+  trash: {
+    fontSize: 20,
   },
   empty: {
     fontFamily: FONT.mono,

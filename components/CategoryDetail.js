@@ -1,4 +1,3 @@
-import { useRef } from "react";
 import {
   Modal,
   View,
@@ -6,7 +5,6 @@ import {
   TouchableOpacity,
   SectionList,
   StyleSheet,
-  Alert,
 } from "react-native";
 import { COLORS, FONT } from "../theme";
 
@@ -26,29 +24,9 @@ function dateLabel(iso) {
 
 /**
  * Viser alle notater i en kategori, kronologisk gruppert på dato.
- * Dobbelttrykk på et notat = flytt til annen kategori.
- * Langt trykk = slett.
+ * Trykk på et notat = åpne redigering (endre tekst / flytt / slett).
  */
-export default function CategoryDetail({ category, notes, onClose, onDoubleTapNote, onDeleteNote }) {
-  const lastTap = useRef({ id: null, time: 0 });
-
-  const handleTap = (note) => {
-    const now = Date.now();
-    if (lastTap.current.id === note.id && now - lastTap.current.time < 300) {
-      lastTap.current = { id: null, time: 0 };
-      onDoubleTapNote(note);
-    } else {
-      lastTap.current = { id: note.id, time: now };
-    }
-  };
-
-  const confirmDelete = (note) => {
-    Alert.alert("Slett notat?", note.text, [
-      { text: "Avbryt", style: "cancel" },
-      { text: "Slett", style: "destructive", onPress: () => onDeleteNote(note) },
-    ]);
-  };
-
+export default function CategoryDetail({ category, notes, onClose, onOpenNote }) {
   // Grupper kronologisk (nyeste dag først, eldste notat først innen dagen)
   const sorted = [...notes].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
   const groups = [];
@@ -82,8 +60,7 @@ export default function CategoryDetail({ category, notes, onClose, onDoubleTapNo
           renderItem={({ item }) => (
             <TouchableOpacity
               activeOpacity={0.7}
-              onPress={() => handleTap(item)}
-              onLongPress={() => confirmDelete(item)}
+              onPress={() => onOpenNote(item)}
               style={styles.noteRow}
             >
               <Text style={styles.noteText}>{item.text}</Text>
@@ -92,7 +69,7 @@ export default function CategoryDetail({ category, notes, onClose, onDoubleTapNo
           ListEmptyComponent={<Text style={styles.empty}>ingen notater ennå</Text>}
         />
 
-        <Text style={styles.hint}>dobbelttrykk = flytt · hold inne = slett</Text>
+        <Text style={styles.hint}>trykk på et notat for å endre, flytte eller slette</Text>
       </View>
     </Modal>
   );

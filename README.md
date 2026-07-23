@@ -30,20 +30,46 @@ npx expo start
 
 Åpne appen i Expo Go (eller en dev build) på telefonen.
 
-## API-nøkkel
+## AI-motor: Claude eller Ollama
+
+Trykk **⚙** øverst til høyre og velg motor.
+
+### Claude (skybasert, bruker credits)
 
 Appen bruker Claude API (modell `claude-opus-4-8`) med strukturert
 JSON-output for kategoriseringen.
 
 1. Hent en nøkkel på <https://platform.claude.com>
-2. Trykk **⚙** øverst til høyre i appen og lim inn nøkkelen
+2. Velg **Claude** i innstillingene og lim inn nøkkelen
 
 Nøkkelen lagres kun lokalt på enheten (AsyncStorage) og sendes bare til
 Anthropic sitt API.
 
-> Merk: nøkkelen ligger på enheten din. Skal appen distribueres til andre,
-> bør kallene flyttes bak en liten backend/proxy slik at nøkkelen ikke
-> følger med appen.
+### Ollama (lokal, gratis)
+
+Kjør en lokal modell på PC-en din i stedet — ingen Claude-credits brukes.
+
+1. Installer Ollama: <https://ollama.com/download>
+2. Hent en modell, f.eks. `ollama pull llama3.1`
+3. Start Ollama slik at telefonen når den:
+   `OLLAMA_HOST=0.0.0.0 ollama serve`
+4. I appen: velg **Ollama (lokal)**, sett adressen til PC-ens IP
+   (f.eks. `http://192.168.1.10:11434` — *ikke* localhost fra mobil) og
+   modellnavnet (`llama3.1`).
+
+PC og mobil må være på samme nettverk. Ollama-strukturert-output brukes,
+så modellen svarer med gyldig JSON etter samme skjema som Claude.
+
+## Slik "trener" AI-en seg
+
+Kategoriseringen blir bedre jo mer du bruker appen: hvert notat og — spesielt
+— hver **manuelle korrigering** (når du trykker på et notat og flytter det)
+sendes med som kontekst til modellen. Flytter du «tomater» til *Handleliste*,
+går nye dagligvarer dit automatisk. Dette er den viktigste kilden til presise
+plasseringer, og veier tyngre enn standardreglene.
+
+> Merk: nøkkelen/adressen ligger på enheten din. Skal appen distribueres til
+> andre, bør kallene flyttes bak en liten backend/proxy.
 
 ## Struktur
 

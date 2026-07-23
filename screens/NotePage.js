@@ -1,11 +1,10 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
@@ -13,7 +12,7 @@ import {
 import { COLORS, FONT } from "../theme";
 
 /**
- * Hovedsiden: bare et skrivefelt og send.
+ * Hovedsiden: bare et skrivefelt og "Take note".
  * Kategoriene er usynlige herfra — AI-en plasserer notatet når du trykker send.
  */
 export default function NotePage({
@@ -22,27 +21,16 @@ export default function NotePage({
   recentNotes,
   categoriesById,
   onSend,
-  onDoubleTapNote,
+  onOpenNote,
   onOpenSettings,
 }) {
   const [text, setText] = useState("");
-  const lastTap = useRef({ id: null, time: 0 });
 
   const send = () => {
     const value = text.trim();
     if (!value || busy) return;
     setText("");
     onSend(value);
-  };
-
-  const handleTap = (note) => {
-    const now = Date.now();
-    if (lastTap.current.id === note.id && now - lastTap.current.time < 300) {
-      lastTap.current = { id: null, time: 0 };
-      onDoubleTapNote(note);
-    } else {
-      lastTap.current = { id: note.id, time: now };
-    }
   };
 
   return (
@@ -72,11 +60,7 @@ export default function NotePage({
         onPress={send}
         disabled={busy || !text.trim()}
       >
-        {busy ? (
-          <ActivityIndicator color="#000" />
-        ) : (
-          <Text style={styles.sendText}>SEND</Text>
-        )}
+        <Text style={styles.sendText}>TAKE NOTE</Text>
       </TouchableOpacity>
 
       {recentNotes.length > 0 && (
@@ -89,7 +73,7 @@ export default function NotePage({
                 <TouchableOpacity
                   key={note.id}
                   activeOpacity={0.7}
-                  onPress={() => handleTap(note)}
+                  onPress={() => onOpenNote(note)}
                   style={styles.recentRow}
                 >
                   <Text style={styles.recentText} numberOfLines={2}>
@@ -100,7 +84,7 @@ export default function NotePage({
               );
             })}
           </ScrollView>
-          <Text style={styles.recentHint}>dobbelttrykk for å flytte et notat</Text>
+          <Text style={styles.recentHint}>trykk på et notat for å endre eller flytte</Text>
         </View>
       )}
 
@@ -135,22 +119,22 @@ const styles = StyleSheet.create({
     color: COLORS.yellowDim,
   },
   input: {
-    minHeight: 130,
-    maxHeight: 220,
+    minHeight: 210,
+    maxHeight: 340,
     borderColor: COLORS.border,
     borderWidth: 1,
     color: COLORS.text,
     fontFamily: FONT.mono,
-    fontSize: 24,
-    lineHeight: 28,
-    padding: 14,
+    fontSize: 25,
+    lineHeight: 30,
+    padding: 16,
     textAlignVertical: "top",
   },
   sendBtn: {
     backgroundColor: COLORS.yellow,
-    paddingVertical: 15,
+    paddingVertical: 16,
     alignItems: "center",
-    marginTop: 12,
+    marginTop: 14,
   },
   sendBtnDisabled: {
     opacity: 0.35,

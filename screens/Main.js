@@ -5,6 +5,9 @@ import {
   saveState,
   loadApiKey,
   saveApiKey,
+  loadSettings,
+  saveSettings,
+  defaultSettings,
   makeId,
   emptyState,
 } from "../lib/storage";
@@ -13,7 +16,9 @@ import NotePage from "./NotePage";
 import CategoriesPage from "./CategoriesPage";
 import CategoryDetail from "../components/CategoryDetail";
 import CategoryChooser from "../components/CategoryChooser";
+import NoteEditor from "../components/NoteEditor";
 import SettingsModal from "../components/SettingsModal";
+import LoadingBar from "../components/LoadingBar";
 import Toast from "../components/Toast";
 import { COLORS } from "../theme";
 
@@ -22,10 +27,12 @@ const { width } = Dimensions.get("window");
 export default function Main() {
   const [state, setState] = useState(emptyState);
   const [apiKey, setApiKey] = useState("");
+  const [settings, setSettings] = useState(defaultSettings);
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [detailCategory, setDetailCategory] = useState(null);
+  const [editingNote, setEditingNote] = useState(null);
   // chooser: { mode: "ambiguous", text, candidates } | { mode: "move", note }
   const [chooser, setChooser] = useState(null);
 
@@ -35,6 +42,7 @@ export default function Main() {
   useEffect(() => {
     loadState().then(setState);
     loadApiKey().then(setApiKey);
+    loadSettings().then(setSettings);
     return () => clearTimeout(toastTimer.current);
   }, []);
 
@@ -85,15 +93,23 @@ export default function Main() {
   };
 
   const handleSend = async (text) => {
-    if (!apiKey) {
+    if (settings.provider === "claude" && !apiKey) {
       showToast("legg inn API-nøkkel først");
+      setSettingsOpen(true);
+      return;
+    }
+    if (settings.provider === "ollama" && !settings.ollamaModel) {
+      showToast("velg en Ollama-modell først");
       setSettingsOpen(true);
       return;
     }
     setBusy(true);
     try {
       const result = await categorizeNote({
+        provider: settings.provider,
         apiKey,
+        ollamaUrl: settings.ollamaUrl,
+        ollamaModel: settings.ollamaModel,
         text,
         categories: state.categories,
         notes: state.notes,
@@ -135,9 +151,29 @@ export default function Main() {
     showToast(`flyttet -> ${category.emoji} ${category.name}`);
   };
 
+  const editNote = async (note, newText) => {
+    const text = newText.trim();
+    if (!text) return;
+    await persist({
+      ...state,
+      notes: state.notes.map((n) => (n.id === note.id ? { ...n, text } : n)),
+    });
+    showToast("notat oppdatert");
+  };
+
   const deleteNote = async (note) => {
     await persist({ ...state, notes: state.notes.filter((n) => n.id !== note.id) });
     showToast("slettet");
+  };
+
+  const deleteCategory = async (cat) => {
+    await persist({
+      ...state,
+      categories: state.categories.filter((c) => c.id !== cat.id),
+      notes: state.notes.filter((n) => n.categoryId !== cat.id),
+    });
+    if (detailCategory?.id === cat.id) setDetailCategory(null);
+    showToast(`slettet kategori: ${cat.name}`);
   };
 
   const handleChooserPick = async (name) => {
@@ -151,11 +187,13 @@ export default function Main() {
     }
   };
 
-  const handleSaveKey = async (key) => {
+  const handleSaveSettings = async ({ apiKey: key, settings: next }) => {
     await saveApiKey(key);
     setApiKey(key.trim());
+    const merged = await saveSettings({ ...defaultSettings, ...next });
+    setSettings(merged);
     setSettingsOpen(false);
-    showToast("nøkkel lagret");
+    showToast("lagret");
   };
 
   const categoriesById = Object.fromEntries(state.categories.map((c) => [c.id, c]));
@@ -163,6 +201,7 @@ export default function Main() {
   const detailNotes = detailCategory
     ? state.notes.filter((n) => n.categoryId === detailCategory.id)
     : [];
+  const editingCat = editingNote ? categoriesById[editingNote.categoryId] : null;
 
   return (
     <View style={styles.root}>
@@ -179,7 +218,7 @@ export default function Main() {
           recentNotes={recentNotes}
           categoriesById={categoriesById}
           onSend={handleSend}
-          onDoubleTapNote={(note) => setChooser({ mode: "move", note })}
+          onOpenNote={setEditingNote}
           onOpenSettings={() => setSettingsOpen(true)}
         />
         <CategoriesPage
@@ -187,9 +226,11 @@ export default function Main() {
           categories={state.categories}
           notes={state.notes}
           onOpenCategory={setDetailCategory}
+          onDeleteCategory={deleteCategory}
         />
       </ScrollView>
 
+      <LoadingBar active={busy} />
       <Toast message={toast} />
 
       <CategoryChooser
@@ -207,14 +248,35 @@ export default function Main() {
         category={detailCategory}
         notes={detailNotes}
         onClose={() => setDetailCategory(null)}
-        onDoubleTapNote={(note) => setChooser({ mode: "move", note })}
-        onDeleteNote={deleteNote}
+        onOpenNote={setEditingNote}
+      />
+
+      <NoteEditor
+        note={editingNote}
+        categoryLabel={editingCat ? `${editingCat.emoji} ${editingCat.name}` : ""}
+        onSave={(newText) => {
+          const note = editingNote;
+          setEditingNote(null);
+          editNote(note, newText);
+        }}
+        onMove={() => {
+          const note = editingNote;
+          setEditingNote(null);
+          setChooser({ mode: "move", note });
+        }}
+        onDelete={() => {
+          const note = editingNote;
+          setEditingNote(null);
+          deleteNote(note);
+        }}
+        onClose={() => setEditingNote(null)}
       />
 
       <SettingsModal
         visible={settingsOpen}
         apiKey={apiKey}
-        onSave={handleSaveKey}
+        settings={settings}
+        onSave={handleSaveSettings}
         onClose={() => setSettingsOpen(false)}
       />
     </View>
